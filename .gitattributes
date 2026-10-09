@@ -1,0 +1,17 @@
+# 统一换行符为 LF，避免跨平台差异
+# 尤其 CONTEST_DECLARATION.md 需与官方原文保持字节一致，
+# 若在 Windows 上被转为 CRLF 会导致逐字节校验失败。
+* text=auto eol=lf
+
+# 以下为必须保持 LF 的文件类型
+*.md text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+LICENSE text eol=lf
+
+# 二进制文件不做换行符转换（当前项目无此类文件，保留规则以备后用）
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
