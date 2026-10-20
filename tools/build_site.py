@@ -27,6 +27,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from mcd_planner.optimizer import build_joint_catalog  # noqa: E402
 from mcd_planner.pricing import load_coupons, load_menu  # noqa: E402
 
+# 数据快照日期。必须是固定值而非 datetime.now()：
+# CI 有一项「生成结果必须与提交一致」的检查，若页面里嵌当前时间，
+# 每次生成的 HTML 都不同，该检查会必然失败。
+# 更新 data/ 下的数据时，同步修改此常量。
+DATA_SNAPSHOT = "2026-10-13"
+
 
 def build_payload():
     """装配页面所需的数据包。"""
@@ -66,15 +72,22 @@ def build_payload():
         })
 
     return {
-        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "generated_at": DATA_SNAPSHOT,
         "items": items,
         "coupons": cps,
         "stats": {
             "menu_all": len(menu),
-            "nutrition_all": 158,
+            "nutrition_all": nutrition_count(),
             "joint": len(items),
         },
     }
+
+
+def nutrition_count() -> int:
+    """营养表条目数，从数据文件读取而非硬编码。"""
+    import json as _json
+    path = ROOT / "data" / "nutrition_mcd.json"
+    return len(_json.loads(path.read_text(encoding="utf-8"))["items"])
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
