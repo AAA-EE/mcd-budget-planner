@@ -1,0 +1,166 @@
+{
+  "now": "2026-10-13 14:30",
+  "cases": [
+    {
+      "input": {
+        "budget": 30,
+        "sodium": 1500,
+        "size": 2
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鸡"
+          ],
+          "price": 17.0,
+          "sodium": 731.0
+        },
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 41
+    },
+    {
+      "input": {
+        "budget": 30,
+        "sodium": 0,
+        "size": 3
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鸡"
+          ],
+          "price": 17.0,
+          "sodium": 731.0
+        },
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 42
+    },
+    {
+      "input": {
+        "budget": 40,
+        "sodium": 800,
+        "size": 2
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鸡"
+          ],
+          "price": 17.0,
+          "sodium": 731.0
+        },
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 54
+    },
+    {
+      "input": {
+        "budget": 50,
+        "sodium": 2000,
+        "size": 3
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鸡"
+          ],
+          "price": 17.0,
+          "sodium": 731.0
+        },
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 3109
+    },
+    {
+      "input": {
+        "budget": 25,
+        "sodium": 1200,
+        "size": 1
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鸡"
+          ],
+          "price": 17.0,
+          "sodium": 731.0
+        },
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 7
+    },
+    {
+      "input": {
+        "budget": 60,
+        "sodium": 600,
+        "size": 3
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 76
+    },
+    {
+      "input": {
+        "budget": 0,
+        "sodium": 1000,
+        "size": 2
+      },
+      "frontier": [
+        {
+          "names": [
+            "麦香鸡"
+          ],
+          "price": 17.0,
+          "sodium": 731.0
+        },
+        {
+          "names": [
+            "麦香鱼"
+          ],
+          "price": 22.5,
+          "sodium": 556.0
+        }
+      ],
+      "plan_count": 127
+    }
+  ]
+}

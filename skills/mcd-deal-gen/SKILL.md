@@ -58,6 +58,29 @@ agent_created: true
 成都南站门店 `3450312` ·薯薯任选 ×1：
 原价 ¥16.00 → 用券后 ¥9.90（优惠 ¥6.10），同时返回取餐方式：堂食（eat-in）/ 外带（locker-in）。
 
+### 6. `calculate-price` 可能不可用，算价应回退到本地
+
+实测（2026-10-13）该接口持续返回 `/items: must be array`，
+连续 4 次不同参数组合均失败。且即使可用，**为每个候选组合调一次远程接口**
+在枚举上千方案时也不现实。
+
+**推荐做法**：MCP 只取数（菜单标价、券面信息），算价用仓库内的本地引擎：
+
+```python
+from mcd_planner.pricing import load_menu, load_coupons, price_basket
+
+menu = load_menu()
+coupons = load_coupons()
+quote = price_basket([("9900012387", 1)], menu, coupons)
+print(quote.summary())   # 实付 ¥13.50（原价 ¥27.00，省 ¥13.50）
+```
+
+本地引擎已覆盖：券的时段/星期/场景判定、券叠加冲突、划线价对照。
+**叠加规则说明**：MCP 未公开 stacking 字段，本地默认「一单一张券」（保守），
+输出中须标注该假设，不可宣称比实际更优惠。
+
+若 `calculate-price` 恢复可用，可作为最终校验，但不作为主路径。
+
 ---
 
 ## 执行流程
@@ -124,9 +147,16 @@ list-nutrition-foods → 160 项营养数据（能量/蛋白质/脂肪/碳水/�
 - 「纯悦」标注能量约清水 1 杯、0 kcal，是零热量饮品替换的天然解
 - 有 30+ 项饮品钠含量为 0，替换含糖饮料可同时降糖降钠
 
-### 第 4 步：候选组合 + 带券试算
+### 第 4 步：候选组合 + 算价
 
-对候选组合逐个调用：
+**首选本地引擎**（见核心事实 6）：
+
+```python
+price_basket([(code, qty), ...], menu, coupons, now=..., scope="dine_in")
+# → Quote: lines / paid_total / list_total / saving / applied_coupons / notes
+```
+
+若本地引擎不可用或用户要求官方核价，再回退到远程接口：
 
 ```
 calculate-price
@@ -140,8 +170,24 @@ calculate-price
 1. 能被单张券完全覆盖的组合（最省）
 2. 无券但实付最低的单品组合
 3. 若有健康约束，在以上候选中筛钠/热量达标者
+4. 若用户已有目标单品，优先给「同类替代」而非整体重配
 
 **试算时也要带上 `needTableware`**，否则报价会漏算餐具费。
+
+### 第 4.5 步（可选）：价格 × 钠 帕累托前沿
+
+当用户问「便宜和健康怎么权衡」「有没有两全的」时，用帕累托前沿回答：
+
+```python
+from mcd_planner.optimizer import optimize, format_frontier
+
+r = optimize(budget=30, max_sodium_mg=1200, max_items=3)
+print(format_frontier(r.frontier))
+```
+
+前沿上的每个点都不可支配：想更便宜就得多摄入钠，想更低钠就得多花钱。
+**若前沿只有一两个点，如实说明「在当前菜单下没有更好的折中」**，
+不要为了显得丰富而虚构方案。
 
 ### 第 5 步：输出方案
 

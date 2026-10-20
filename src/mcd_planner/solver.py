@@ -186,59 +186,59 @@ def filter_items(items: Iterable[NutritionItem],
     return out
 
 
-def find_combos(items: list[NutritionItem],
-                c: Constraints,
-                max_size: int = 3,
-                limit: int = 5) -> list[tuple[NutritionTotals, float]]:
-    """
-    枚举满足约束的组合，按「钠含量更低 + 热量更优」排序。
+def _trim_pool(items: list[NutritionItem],
+               per_category: int = 6) -> list[NutritionItem]:
+    """同类别保留钠含量最低的若干项，压缩搜索空间。"""
+    by_cat: dict[str, list[NutritionItem]] = {}
+    for it in items:
+        by_cat.setdefault(it.category, []).append(it)
+    trimmed: list[NutritionItem] = []
+    for group in by_cat.values():
+        group.sort(key=lambda x: (x.sodium_mg, x.kcal))
+        trimmed.extend(group[:per_category])
+    return trimmed
 
-    返回 (营养合计, 综合评分) 列表，评分越小越优。
-    评分函数对钠与热量做归一化加权，体现「同样吃饱，钠越低越好」。
+
+def enumerate_combos(items: list[NutritionItem],
+                     c: Constraints,
+                     max_size: int = 3,
+                     max_per_category: int = 2,
+                     pool_cap: int = 6) -> list[NutritionTotals]:
+    """
+    枚举所有满足约束的组合。
+
+    同时施加：增量剪枝（钠/热量超标立即回溯）、
+    多样性约束（同类别最多 max_per_category 项）、
+    按餐品名去重。
     """
     pool = filter_items(items, c)
     if not pool:
         return []
 
-    # 预筛：同类别保留表现最好的 N 个，避免组合爆炸
-    top_per_cat: dict[str, list[NutritionItem]] = {}
-    for it in pool:
-        top_per_cat.setdefault(it.category, []).append(it)
-
-    trimmed: list[NutritionItem] = []
-    for cat, group in top_per_cat.items():
-        # 排序偏好：低钠优先，其次低热量
-        group.sort(key=lambda x: (x.sodium_mg, x.kcal))
-        trimmed.extend(group[:6])
-
-    # 组合枚举（不同类别优先，覆盖典型「主食+饮品+小食」结构）
-    found: list[tuple[NutritionTotals, float]] = []
+    trimmed = _trim_pool(pool, per_category=pool_cap)
+    out: list[NutritionTotals] = []
     seen: set[tuple[str, ...]] = set()
 
     def walk(start: int, chosen: list[NutritionItem]) -> None:
         if len(chosen) >= 2:
-            t = NutritionTotals()
-            for it in chosen:
-                t.add(it)
-            # 多样性约束：同一类别最多选 2 项，避免「三杯咖啡」式堆砌
             cats = [i.category for i in chosen]
-            if max(cats.count(c) for c in set(cats)) <= 2:
+            if max(cats.count(x) for x in set(cats)) <= max_per_category:
+                t = NutritionTotals()
+                for it in chosen:
+                    t.add(it)
                 if _violates(t, c) is None:
                     key = tuple(sorted(i.name for i in chosen))
                     if key not in seen:
                         seen.add(key)
-                        found.append((t, _score(t)))
+                        out.append(t)
         if len(chosen) >= max_size:
             return
         for idx in range(start, len(trimmed)):
-            # 同类别已达上限则跳过该分支
-            if trimmed[idx].category in {i.category for i in chosen}:
-                same_count = sum(1 for i in chosen
-                                 if i.category == trimmed[idx].category)
-                if same_count >= 2:
-                    continue
-            cur = chosen + [trimmed[idx]]
-            # 增量剪枝：钠超标直接剪枝
+            cand = trimmed[idx]
+            same = sum(1 for i in chosen if i.category == cand.category)
+            if same >= max_per_category:
+                continue
+            cur = chosen + [cand]
             partial = NutritionTotals()
             for i in cur:
                 partial.add(i)
@@ -249,6 +249,20 @@ def find_combos(items: list[NutritionItem],
             walk(idx + 1, cur)
 
     walk(0, [])
+    return out
+
+
+def find_combos(items: list[NutritionItem],
+                c: Constraints,
+                max_size: int = 3,
+                limit: int = 5) -> list[tuple[NutritionTotals, float]]:
+    """
+    枚举满足约束的组合，按「钠含量更低 + 热量更优」排序。
+
+    返回 (营养合计, 综合评分) 列表，评分越小越优。
+    评分函数对钠与热量做归一化加权，体现「同样吃饱，钠越低越好」。
+    """
+    found = [(t, _score(t)) for t in enumerate_combos(items, c, max_size=max_size)]
     found.sort(key=lambda pair: pair[1])
     return found[:limit]
 
@@ -292,3 +306,53 @@ def rank_by(items: list[NutritionItem],
         raise ValueError(f"不支持的指标：{metric}")
     return sorted(items, key=lambda x: getattr(x, metric),
                   reverse=reverse)[:limit]
+
+
+# --------------------------------------------------------------------------- #
+# 帕累托前沿
+# --------------------------------------------------------------------------- #
+
+def pareto_frontier(items: list[NutritionItem],
+                    max_kcal: float | None = None,
+                    max_sodium_mg: float | None = None,
+                    max_size: int = 3,
+                    limit: int = 20) -> list[tuple[NutritionTotals, float]]:
+    """
+    营养维度（热量 × 钠）的帕累托前沿。
+
+    含义：前沿上的每个组合都是「不可支配」的——想再降钠就必须接受更高热量，
+    想再降热量就必须接受更高钠。它回答的是：
+
+        平价与低钠不可兼得时，边界在哪？
+
+    返回按钠含量升序排列的 (营养合计, 热量) 列表，
+    热量字段直接取 totals.kcal，第二项保留以便与 find_combos 接口一致。
+    """
+    c = Constraints(max_kcal=max_kcal, max_sodium_mg=max_sodium_mg)
+    combos = enumerate_combos(items, c, max_size=max_size)
+    if not combos:
+        return []
+
+    # 先按 (热量, 钠) 排序，再做支配关系扫描
+    combos.sort(key=lambda t: (t.kcal, t.sodium_mg))
+
+    front: list[NutritionTotals] = []
+    best_sodium = float("inf")
+    for t in combos:
+        # 已按热量升序遍历：只要钠严格低于此前所有点，即为前沿点
+        if t.sodium_mg < best_sodium - 1e-9:
+            front.append(t)
+            best_sodium = t.sodium_mg
+
+    front.sort(key=lambda t: t.sodium_mg)
+    return [(t, t.kcal) for t in front[:limit]]
+
+
+def is_dominated(a: NutritionTotals, b: NutritionTotals) -> bool:
+    """
+    a 是否被 b 支配（两个维度都不优于 b，且至少一个维度严格更差）。
+    供测试与调试使用。
+    """
+    no_worse = b.kcal <= a.kcal and b.sodium_mg <= a.sodium_mg
+    strictly_better = b.kcal < a.kcal or b.sodium_mg < a.sodium_mg
+    return no_worse and strictly_better

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 营养约束求解器（12 项）
+        run: python tests/test_solver.py
+
+      - name: 定价引擎与券叠加判定（22 项）
+        run: python tests/test_pricing.py
+
+      - name: 优化器与帕累托前沿（15 项）
+        run: python tests/test_optimizer.py
+
+      - name: 离线演示可运行
+        run: python examples/demo_offline.py > /dev/null
+
+      - name: 优化器演示可运行
+        run: python examples/demo_optimize.py > /dev/null
+
+      - name: 重新生成静态页面
+        run: python tools/build_site.py
+
+      - name: 生成过程不改变已提交的页面（防止忘记重新构建）
+        run: |
+          if ! git diff --quiet docs/; then
+            echo "::error::docs/ 与生成结果不一致，请本地运行 python tools/build_site.py 后提交"
+            git diff --stat docs/
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 前后端对拍（页面 JS = Python 实现）
+        run: node tools/parity_check.mjs

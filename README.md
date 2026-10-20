@@ -5,10 +5,18 @@
 基于麦当劳 MCP Server 的「预算 + 营养」双约束套餐优选 Skill。
 不是券列表查询器，是**点餐决策器**：把「省钱的券」和「健康的餐」放在一起求解。
 
+[![CI](https://github.com/AAA-EE/mcd-budget-planner/actions/workflows/ci.yml/badge.svg)](https://github.com/AAA-EE/mcd-budget-planner/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-mcd--mcp-orange.svg)](MCP_INTEGRATION.md)
-[![Tests](https://img.shields.io/badge/tests-12%2F12%20passed-brightgreen.svg)](tests/test_solver.py)
+[![Tests](https://img.shields.io/badge/tests-49%20passed-brightgreen.svg)](tests/)
+[![Parity](https://img.shields.io/badge/parity-7%2F7%20matched-blueviolet.svg)](tools/parity_check.mjs)
+
+### 🎮 [**在线试算 → 打开即玩，无需安装**](https://aaa-ee.github.io/mcd-budget-planner/)
+
+拖动「预算」和「钠上限」两个滑块，实时算出实付最省且钠可控的组合，
+下方同步显示**价格 × 钠的帕累托前沿**。页面算法与仓库内 Python 实现通过
+前后端对拍校验，两边结果必须完全一致，否则 CI 会失败。
 
 ---
 
@@ -83,10 +91,67 @@ MCP 营养接口返回 158 项餐品，钠含量跨度极大：
 | 能力 | 说明 |
 |---|---|
 | 🎫 真实可用券核验 | 不轻信卡包数据，以门店维度二次确认券是否真的能用 |
-| 💰 带券价格试算 | 调用 `calculate-price` 拿真实实付金额，不是估算 |
+| 💰 本地定价引擎 | 菜单标价 + 券规则 + 叠加冲突判定，算价不依赖远程接口 |
 | 🥗 营养约束求解 | 支持控钠 / 控热量 / 高蛋白 / 高钙多维约束组合枚举 |
+| 📉 价格 × 钠 帕累托前沿 | 回答「想再便宜就得吃多少钠」这条边界的形状 |
+| 🔄 同类替代建议 | 「我就想吃巨无霸」→ 同类里有没有更便宜又更少钠的 |
 | 🏪 四种场景适配 | 到店自取、得来速、麦乐送、企业团餐 |
 | 🔒 安全边界 | 止步于试算，不自动下单；积分抽奖只算不动 |
+
+### 为什么是「价格 × 钠」，不是「价格 × 热量」
+
+热量是常见维度，但钠更值得关注：中国居民钠摄入普遍超标，
+而一份巨无霸的钠含量（961mg）已接近每日建议上限（约 2000mg）的一半。
+
+这个维度上的差异是**数量级**的，不是边际的：
+
+| 餐品 | 价格 | 钠 | 热量 |
+|---|---|---|---|
+| 纯悦 | ¥7.50 | **0mg** | 0kcal |
+| 麦香鱼 | ¥22.50 | 556mg | 325kcal |
+| 麦辣鸡腿汉堡 | **¥22.50** | **1208mg** | 485kcal |
+| 巨无霸 | ¥25.50 | 961mg | 513kcal |
+| 双层吉士汉堡 | ¥23.00 | 1017mg | 429kcal |
+| 芝士安格斯厚牛堡 | ¥31.50 | **1373mg** | 1003kcal |
+
+注意第二行和第三行：**同为 ¥22.50，钠含量差 2.2 倍**。
+同样的钱，选哪个更值得，这就是本项目要回答的问题。
+
+---
+
+## 在线页面
+
+`docs/index.html` 是单文件应用，无后端、无构建、无依赖，
+直接部署到 GitHub Pages 即可访问。
+
+页面内嵌：
+- 41 项「同时具备价格与营养」的餐品数据
+- 券的有效期 / 适用星期 / 时段判定逻辑
+- 与 Python 完全一致的组合枚举与帕累托求解
+
+**前后端一致性怎么保证**：两份实现独立存在，难免漂移。
+`tools/parity_check.mjs` 从 `index.html` 中抽取 JS 算法，
+在最小 DOM 桩下执行，用与 Python 相同的 7 组输入跑一遍，
+比对帕累托前沿是否逐点一致。CI 中这一步失败即构建失败。
+
+```bash
+# 本地重新生成页面（数据变动后需要）
+python tools/build_site.py
+
+# 对拍校验
+node tools/parity_check.mjs
+# → 共 7 个用例，一致 7，不一致 0
+```
+
+### 部署到 GitHub Pages
+
+1. 仓库 **Settings → Pages**
+2. Source 选 `Deploy from a branch`
+3. Branch 选 `main`，目录选 `/docs`
+4. 保存后约 1 分钟可访问 `https://<用户名>.github.io/mcd-budget-planner/`
+
+CI 中有一项检查：若 `docs/` 与 `python tools/build_site.py` 的生成结果不一致，
+构建会失败并提示重新生成。这样可以避免改了数据却忘记重建页面。
 
 ---
 
@@ -98,28 +163,36 @@ MCP 营养接口返回 158 项餐品，钠含量跨度极大：
 git clone https://github.com/AAA-EE/mcd-budget-planner.git
 cd mcd-budget-planner
 
-# 运行离线演示：5 个真实场景
+# 营养约束求解演示：5 个场景
 python examples/demo_offline.py
 
-# 运行单元测试：12 项
+# 价格 × 钠 帕累托前沿演示：5 个场景
+python examples/demo_optimize.py
+
+# 全部单元测试：49 项
 python tests/test_solver.py
+python tests/test_pricing.py
+python tests/test_optimizer.py
+
+# 前后端对拍：7 个用例
+node tools/parity_check.mjs
 ```
 
-`examples/demo_offline.py` 会输出：
+`examples/demo_optimize.py` 的核心输出：
 
 ```
-场景一：控钠午餐｜钠 ≤ 600mg 且 热量 ≤ 500kcal
-  → 小杯玉米杯 + 大杯玉米杯 + 浓缩咖啡
-    热量 153kcal · 蛋白 7g · 钠 3mg
+场景三｜同价不同钠：这是本项目的核心发现
+  麦辣鸡腿汉堡   ¥22.50  钠 1208mg  热量 485kcal
+  麦香鱼        ¥22.50  钠  556mg  热量 325kcal
 
-场景三：钠含量最低的 8 款餐品
-  → 0mg  147kcal  可乐中杯
-    0mg    2kcal  锡兰红茶
-    ...
+  两者同为 ¥22.50，但后者钠少 652mg（54%）。
+  同样的钱，选哪个更值得，一目了然。
 
-场景四：零热量饮品（用于替换含糖饮料）
-  → 0kcal  钠 35mg  无糖可口可乐中杯
-    0kcal  钠  0mg  纯悦
+场景四｜「我就想吃巨无霸」—— 有更好的同类替代吗
+目标：巨无霸　¥25.50　钠 961mg
+  → ¥17.00 钠 731mg  麦香鸡             便宜 ¥8.50、少钠 230mg
+  → ¥22.50 钠 556mg  麦香鱼             便宜 ¥3.00、少钠 405mg
+  → ¥24.00 钠 917mg  双层深海鳕鱼堡       便宜 ¥1.50、少钠 44mg
 ```
 
 ### 方式二：作为 WorkBuddy Skill 使用（完整体验）
@@ -189,22 +262,66 @@ mcd-budget-planner/
 │   └── nutrition_mcd.json       # 158 项营养数据集（去重后）
 ├── src/
 │   └── mcd_planner/
-│       └── solver.py            # 营养约束求解器（核心算法）
+│       ├── solver.py            # 营养约束求解 + 帕累托前沿
+│       ├── pricing.py           # 本地定价引擎 + 券叠加冲突判定
+│       └── optimizer.py         # 价格×钠 联合求解与同类替代
 ├── examples/
-│   └── demo_offline.py          # 离线演示：5 个场景
+│   ├── demo_offline.py          # 营养维度演示：5 个场景
+│   └── demo_optimize.py         # 帕累托与券效果演示：5 个场景
 ├── tests/
-│   └── test_solver.py           # 12 项单元测试
+│   ├── test_solver.py           # 12 项
+│   ├── test_pricing.py          # 22 项
+│   └── test_optimizer.py        # 15 项
+├── tools/
+│   ├── build_site.py            # 从数据生成 docs/index.html
+│   └── parity_check.mjs         # 前后端对拍校验
 ├── skills/
 │   └── mcd-deal-gen/            # 可安装的 WorkBuddy Skill
 │       ├── SKILL.md
 │       └── scripts/price_planner.py
+├── .github/workflows/ci.yml     # CI：49 项测试 + 对拍 + 构建一致性
 └── docs/
+    ├── index.html               # 在线试算页（单文件，可直接部署）
     └── ALGORITHM.md             # 算法说明
 ```
 
 ---
 
 ## 算法说明
+
+### 三个模块的分工
+
+```
+pricing.py      「这一篮多少钱」
+                菜单标价 → 券适用性判定 → 叠加冲突裁决 → 实付
+                        ↓
+solver.py       「这一篮有多少钠」
+                营养合计 → 硬约束过滤 → 组合枚举 → 帕累托前沿
+                        ↓
+optimizer.py    「两者一起看」
+                价格 × 钠 联合前沿 + 同类替代建议
+```
+
+拆开的理由是：定价逻辑需要密集测试（券时段、星期、叠加规则都是易错点），
+营养逻辑则是纯数学。混在一起既难测也难改。
+
+### 券叠加：一个显式假设
+
+MCP 的 `query-store-coupons` **只返回券的适用商品与券后价，不返回 stacking 字段**。
+也就是说，麦当劳没有公开「哪些券能同时用」。
+
+本项目的处理是：**默认一单一张券**（`STACK_SINGLE`），并在输出中标注该假设。
+宁可给出保守的价格，也不猜一个更乐观的数字。
+
+需要时可通过 `stack_policy=STACK_GREEDY` 切换为多券叠加，
+此时会先做两两冲突检测：
+
+```python
+conflict_reason(a, b)  # 返回 None 表示可叠加，否则返回冲突原因
+# 规则：同商品被两张券覆盖 → 冲突
+#       全场券 vs 单品券   → 冲突（已被全场券覆盖）
+#       两张全场券         → 冲突
+```
 
 ### 约束求解
 
@@ -220,6 +337,24 @@ Constraints(
     categories=frozenset({"burger", "side", "drink"}),  # 类别限定
 )
 ```
+
+### 帕累托前沿
+
+`price × sodium` 双目标最小化。判定逻辑很直接：
+
+```python
+# 按价格升序遍历，只要钠严格低于此前所有点，就是前沿点
+for p in sorted(plans, key=lambda x: (x.price, x.sodium_mg)):
+    if p.sodium_mg < best_sodium:
+        frontier.append(p)
+        best_sodium = p.sodium_mg
+```
+
+**一个反直觉的结果**：在 41 项可参与求解的餐品中，
+即使枚举近 4000 个组合，帕累托前沿也只有 **2 个点**。
+
+这说明绝大多数组合都能被某个更便宜或更低钠的选项替代。
+前沿越短，说明市场供给越「有效率」——这个观察本身就是有价值的。
 
 ### 排序评分
 
