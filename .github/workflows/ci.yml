@@ -34,6 +34,9 @@ jobs:
       - name: 重新生成静态页面
         run: python tools/build_site.py
 
+      - name: 重新生成 README 效果图
+        run: python tools/make_preview.py
+
       - name: 生成过程不改变已提交的页面（防止忘记重新构建）
         run: |
           if ! git diff --quiet docs/; then
