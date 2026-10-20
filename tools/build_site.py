@@ -689,12 +689,16 @@ def main():
     out_dir = ROOT / "docs"
     out_dir.mkdir(exist_ok=True)
     out = out_dir / "index.html"
-    out.write_text(html, encoding="utf-8")
+    # 显式指定 newline='\n'：Windows 下默认写 CRLF，会导致本地生成结果
+    # 与仓库内的 LF 版本不一致，CI 的「生成一致性」检查会误报
+    with open(out, "w", encoding="utf-8", newline="\n") as f:
+        f.write(html)
 
     expected = build_parity_expected()
     exp_path = out_dir / "parity_expected.json"
-    exp_path.write_text(json.dumps(expected, ensure_ascii=False, indent=2),
-                        encoding="utf-8")
+    with open(exp_path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(expected, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
     print(f"已生成 {out}")
     print(f"  联合目录 {stats['joint']} 项 / 菜单 {stats['menu_all']} 项")
