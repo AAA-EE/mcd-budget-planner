@@ -149,6 +149,7 @@ def optimize(
     max_sodium_mg: float | None = None,
     max_kcal: float | None = None,
     min_protein_g: float | None = None,
+    min_items: int = 1,
     max_items: int = 3,
     require_staple: bool = True,
     now=None,
@@ -163,6 +164,8 @@ def optimize(
 
     require_staple: 要求组合中至少含一件主食（汉堡/套餐），
                     避免给出「三杯可乐」式方案。
+    min_items: 组合的最少件数。设为 2 时，「最省」会落在双件组合上，
+               而不是永远退化成单件——后者会让「件数」这个控件失去意义。
     """
     catalog = build_joint_catalog(menu_path, nutrition_path, map_path)
     result = OptimizeResult(catalog_size=len(catalog))
@@ -191,7 +194,7 @@ def optimize(
     staple_cats = {"burger", "set"}
     candidates: list[Plan] = []
 
-    for size in range(1, max_items + 1):
+    for size in range(max(1, min_items), max_items + 1):
         for combo in combinations(pool, size):
             codes = [c.code for c in combo]
             cats = {c.category for c in combo}

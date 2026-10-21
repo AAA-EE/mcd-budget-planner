@@ -50,6 +50,8 @@ h2{font-size:19px;font-weight:600;margin-bottom:6px}
 .ctrl-hd label{font-size:14px;font-weight:500}
 .ctrl-hd .val{font-size:14px;font-weight:600;color:var(--blue);
   font-variant-numeric:tabular-nums}
+.ctrl-note{font-size:12px;color:var(--hint);margin-top:7px;line-height:1.5}
+.ctrl-note.off{color:var(--amber)}
 input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;
   background:var(--line);border-radius:2px;outline:none}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;
@@ -67,6 +69,14 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;
 
 .hero{background:var(--card);border:1px solid var(--line);border-radius:14px;
   padding:24px;margin-bottom:16px}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.hero-grid .hero{margin-bottom:0}
+.hero.alt{border-color:#c9d7ec;background:linear-gradient(180deg,#fbfcfe,#fff)}
+.tag-blue{background:var(--blue-bg);color:var(--blue)}
+.hint-bar{padding:12px 16px;background:var(--blue-bg);border-radius:10px;
+  font-size:13px;color:var(--blue);line-height:1.7;margin-bottom:14px}
+.tradeoff{padding:12px 16px;background:var(--blue-bg);border-radius:10px;
+  font-size:13px;color:var(--blue);line-height:1.7}
 .hero .tag{display:inline-block;font-size:12px;padding:3px 9px;border-radius:5px;
   background:var(--green-bg);color:var(--green);margin-bottom:12px;font-weight:500}
 .hero .combo{font-size:19px;font-weight:600;line-height:1.45;margin-bottom:14px}
@@ -145,26 +155,29 @@ footer a{color:var(--muted)}
     <div class="ctrl">
       <div class="ctrl-hd">
         <label>预算上限</label>
-        <span class="val" id="budgetVal">不限</span>
+        <span class="val" id="budgetVal">¥30</span>
       </div>
-      <input type="range" id="budget" min="0" max="80" step="1" value="0">
+      <input type="range" id="budget" min="15" max="50" step="1" value="30">
+      <div class="ctrl-note" id="budgetNote"></div>
     </div>
 
     <div class="ctrl">
       <div class="ctrl-hd">
         <label>钠摄入上限</label>
-        <span class="val" id="sodiumVal">不限</span>
+        <span class="val" id="sodiumVal">1200mg</span>
       </div>
-      <input type="range" id="sodium" min="0" max="3000" step="50" value="0">
+      <input type="range" id="sodium" min="400" max="1600" step="50" value="1200">
+      <div class="ctrl-note" id="sodiumNote"></div>
     </div>
 
     <div class="ctrl">
-      <div class="ctrl-hd"><label>组合件数上限</label></div>
+      <div class="ctrl-hd"><label>至少几件</label></div>
       <div class="seg" id="sizeSeg">
-        <button data-v="1">1 件</button>
+        <button data-v="1" class="on">1 件</button>
         <button data-v="2">2 件</button>
-        <button data-v="3" class="on">3 件</button>
+        <button data-v="3">3 件</button>
       </div>
+      <div class="ctrl-note" id="sizeNote"></div>
     </div>
   </div>
 </section>
@@ -281,13 +294,15 @@ function quoteOf(items, now){
 }
 
 /* ---------- 枚举 ---------- */
-function enumerate(maxSize, maxSodium){
+/* minSize 控制「至少几件」。若只限制上限，最优解永远是单件
+   （加东西只会更贵），「件数」控件就形同虚设。 */
+function enumerate(minSize, maxSize, maxSodium){
   const pool = DATA.items.filter(it =>
     maxSodium ? it.s <= maxSodium : true);
   const out = [];
   const n = pool.length;
   function walk(start, chosen){
-    if(chosen.length >= 1){
+    if(chosen.length >= minSize){
       const cats = new Set(chosen.map(x=>x.cat));
       let staple = false;
       for(const c of cats) if(STAPLE.has(c)) staple = true;
@@ -311,9 +326,9 @@ function enumerate(maxSize, maxSodium){
 }
 
 /* ---------- 求解 ---------- */
-function solve(budget, maxSodium, maxSize, nowOverride){
+function solve(budget, maxSodium, minSize, nowOverride){
   const now = nowOverride || new Date();
-  const raw = enumerate(maxSize, maxSodium);
+  const raw = enumerate(minSize || 1, 3, maxSodium);
   const plans = [];
   for(const r of raw){
     const q = quoteOf(r.items, now);
@@ -330,6 +345,12 @@ function solve(budget, maxSodium, maxSize, nowOverride){
   return {plans, front};
 }
 
+/* 无约束时的最省方案，用于判断「当前约束是否真的起作用」 */
+function referenceBest(minSize, nowOverride){
+  const r = solve(0, 0, minSize, nowOverride);
+  return r.front.length ? r.front[0] : null;
+}
+
 /* 对外暴露纯函数，供前后端对拍脚本调用 */
 globalThis.MCD = { solve, enumerate, quoteOf, couponFor, couponValid, DATA };
 
@@ -338,37 +359,13 @@ const fmt = n => '¥' + n.toFixed(2);
 const esc = s => String(s).replace(/[&<>"]/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-function renderBest(res){
-  const box = document.getElementById('best');
-  const lead = document.getElementById('bestLead');
-  if(!res.front.length){
-    lead.textContent = '';
-    box.innerHTML = '<div class="panel empty">当前约束下无可行解，试着放宽预算或钠上限。</div>';
-    return;
-  }
-  const p = res.front[0];
-  const lowest = res.front.reduce((a,b)=> a.s<b.s?a:b);
-  lead.textContent = res.plans.length + ' 个可行组合，其中 ' +
-    res.front.length + ' 个位于帕累托前沿。';
-
+function planCard(p, cls, tag, tagCls){
   const names = p.items.map(x=>esc(x.n)).join(' + ');
   const save = p.list - p.price;
-  const couponLine = p.used.length
-    ? '<div class="coupon">已用券：' + esc([...new Set(p.used)].join('、')) + '</div>'
-    : '';
-
-  let tradeoff = '';
-  if(lowest !== p && lowest.s < p.s){
-    const dp = lowest.price - p.price;
-    const ds = p.s - lowest.s;
-    tradeoff = '<div class="meta" style="border-top:none;padding-top:0;margin-top:-4px">' +
-      '<span>同预算下最低钠方案：<b>' + esc(lowest.items.map(x=>x.n).join(' + ')) +
-      '</b>（' + lowest.s.toFixed(0) + 'mg，' + fmt(lowest.price) + '）' +
-      '，多花 ' + fmt(dp) + ' 可减钠 ' + ds.toFixed(0) + 'mg</span></div>';
-  }
-
-  box.innerHTML = '<div class="hero">' +
-    '<div class="tag">实付最省</div>' +
+  const coupon = p.used.length
+    ? '<div class="coupon">已用券：' + esc([...new Set(p.used)].join('、')) + '</div>' : '';
+  return '<div class="hero ' + cls + '">' +
+    '<div class="tag ' + (tagCls||'') + '">' + tag + '</div>' +
     '<div class="combo">' + names + '</div>' +
     '<div class="money"><span class="now">' + fmt(p.price) + '</span>' +
       (save > 0.005 ? '<span class="was">' + fmt(p.list) + '</span>' +
@@ -378,7 +375,54 @@ function renderBest(res){
       '<span>钠 <b>' + p.s.toFixed(0) + 'mg</b></span>' +
       '<span>热量 <b>' + p.k.toFixed(0) + 'kcal</b></span>' +
       '<span>蛋白 <b>' + p.pr.toFixed(0) + 'g</b></span>' +
-    '</div>' + couponLine + tradeoff + '</div>';
+    '</div>' + coupon + '</div>';
+}
+
+function renderBest(res, ctx){
+  const box = document.getElementById('best');
+  const lead = document.getElementById('bestLead');
+  if(!res.front.length){
+    lead.textContent = '';
+    box.innerHTML = '<div class="panel empty">当前约束下无可行解。' +
+      '试着放宽预算或钠上限，或把「至少几件」调回 1 件。</div>';
+    return;
+  }
+
+  const cheapest = res.front[0];
+  const lowest = res.front.reduce((a,b)=> a.s<=b.s ? a : b);
+
+  lead.textContent = res.plans.length + ' 个可行组合，其中 ' +
+    res.front.length + ' 个位于帕累托前沿。';
+
+  let html = '<div class="hero-grid">' +
+    planCard(cheapest, '', '实付最省') +
+    (lowest !== cheapest
+      ? planCard(lowest, 'alt', '同预算最低钠', 'tag-blue')
+      : '') +
+    '</div>';
+
+  /* 明确告诉用户约束有没有起作用。若不提示，拖动滑块看不到变化会以为页面坏了。
+     这不是错误，是信息——所以用中性色，并直接给出「怎样才能看到变化」。 */
+  if(ctx && ctx.bound === false){
+    const ref = ctx.reference;
+    const tips = [];
+    if(Math.floor(ref.price) > 15)
+      tips.push('预算压到 ¥' + (Math.floor(ref.price) - 1) + ' 以下');
+    tips.push('钠上限压到 ' + (Math.floor(ref.s) - 1) + 'mg 以下');
+    html += '<div class="hint-bar">当前预算与钠上限尚未排除最省方案（' +
+      esc(ref.items.map(x=>x.n).join(' + ')) + '，¥' + ref.price.toFixed(2) +
+      ' / ' + ref.s.toFixed(0) + 'mg 钠），所以推荐不变。把' +
+      tips.join('，或') + '，推荐才会改变。</div>';
+  }
+
+  if(lowest !== cheapest){
+    const dp = lowest.price - cheapest.price;
+    const ds = cheapest.s - lowest.s;
+    html += '<div class="tradeoff">同价区间内多花 ' + fmt(dp) +
+      '，可减钠 ' + ds.toFixed(0) + 'mg。</div>';
+  }
+
+  box.innerHTML = html;
 }
 
 function renderTable(front){
@@ -508,18 +552,57 @@ function renderAlts(){
 }
 
 /* ---------- 交互绑定 ---------- */
-let maxSize = 3;
+const BUDGET_MAX = 50;      // 滑块右端 = 不限
+const SODIUM_MAX = 1600;    // 滑块右端 = 不限
+let minSize = 1;
+
+function setNote(id, text, off){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = text || '';
+  el.className = 'ctrl-note' + (off ? ' off' : '');
+}
 
 function update(){
-  const b = +document.getElementById('budget').value;
-  const s = +document.getElementById('sodium').value;
+  const bRaw = +document.getElementById('budget').value;
+  const sRaw = +document.getElementById('sodium').value;
+  const b = bRaw >= BUDGET_MAX ? 0 : bRaw;
+  const s = sRaw >= SODIUM_MAX ? 0 : sRaw;
+
   document.getElementById('budgetVal').textContent = b ? fmt(b) : '不限';
   document.getElementById('sodiumVal').textContent = s ? s + 'mg' : '不限';
 
-  const res = solve(b, s, maxSize);
-  renderBest(res);
+  const res = solve(b, s, minSize);
+  const ref = referenceBest(minSize, null);
+
+  /* 约束是否真的排除了「无约束最省解」——没有排除的话，
+     推荐不会变，必须明确告诉用户，否则会以为页面没反应 */
+  const bound = !(ref && (!b || ref.price <= b) && (!s || ref.s <= s));
+
+  renderBest(res, {bound, reference: ref});
   renderTable(res.front);
   renderChart(res.front, res.plans);
+
+  /* 滑块下方的提示，说明当前这个值意味着什么 */
+  if(ref){
+    setNote('budgetNote',
+      bound && b && ref.price > b
+        ? '已排除默认最省方案（' + fmt(ref.price) + '），推荐已改变'
+        : '默认最省方案为 ' + fmt(ref.price) + '，预算高于此值不会改变推荐',
+      bound && b && ref.price > b);
+
+    setNote('sodiumNote',
+      bound && s && ref.s > s
+        ? '已排除默认最省方案（' + ref.s.toFixed(0) + 'mg 钠），推荐已改变'
+        : '默认最省方案含钠 ' + ref.s.toFixed(0) + 'mg，压到此值以下才会改变推荐',
+      bound && s && ref.s > s);
+  }
+
+  if(minSize > 1){
+    setNote('sizeNote', '已要求至少 ' + minSize + ' 件，最省方案会落在多件组合上', true);
+  } else {
+    setNote('sizeNote', '「至少 2 件」会强制选多件组合，结果随之改变', false);
+  }
 }
 
 document.getElementById('budget').addEventListener('input', update);
@@ -528,7 +611,7 @@ document.querySelectorAll('#sizeSeg button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('#sizeSeg button').forEach(b=>b.classList.remove('on'));
     btn.classList.add('on');
-    maxSize = +btn.dataset.v;
+    minSize = +btn.dataset.v;
     update();
   });
 });
@@ -542,7 +625,8 @@ document.querySelectorAll('#sizeSeg button').forEach(btn=>{
     ' · 钠 '+x.s.toFixed(0)+'mg</option>').join('');
   sel.addEventListener('change', renderAlts);
 
-  document.getElementById('sodium').value = 1500;
+  document.getElementById('budget').value = 30;
+  document.getElementById('sodium').value = 1200;
   update();
   renderAlts();
 })();

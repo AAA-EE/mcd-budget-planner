@@ -140,10 +140,10 @@ def main() -> None:
 
     # 件数分段
     sy = ty + 58
-    parts.append(t(PAD + 26, sy, "组合件数上限", 16, C["ink"], "500"))
+    parts.append(t(PAD + 26, sy, "至少几件", 16, C["ink"], "500"))
     bx = W - PAD - 26 - 3 * 78 - 2 * 10
     for i, label in enumerate(["1 件", "2 件", "3 件"]):
-        on = label == "3 件"
+        on = i == 0
         x = bx + i * 88
         parts.append(rect(x, sy - 26, 78, 38, C["blue"] if on else C["card"],
                           None if on else C["line"], rx=9))
@@ -153,7 +153,7 @@ def main() -> None:
 
     y += panel_h + 46
 
-    # ---------- 最优方案 ----------
+    # ---------- 最优方案：双卡（最省 / 最低钠） ----------
     parts.append(t(PAD, y, "最优方案", 22, C["ink"], "600"))
     y += 28
     parts.append(t(PAD, y,
@@ -161,48 +161,50 @@ def main() -> None:
                    15, C["muted"]))
     y += 26
 
-    hero_h = 250
-    parts.append(rect(PAD, y, W - PAD * 2, hero_h, C["card"], C["line"], rx=16))
+    hero_h = 236
+    gap = 14
+    cw2 = (W - PAD * 2 - gap) / 2
+    cards = [
+        (PAD, best, "实付最省", C["green"], C["green_bg"], C["card"], C["line"]),
+        (PAD + cw2 + gap, lowest, "同预算最低钠", C["blue"], C["blue_bg"],
+         "#fbfcfe", "#c9d7ec"),
+    ]
 
-    hy = y + 34
-    # 绿色标签
-    parts.append(rect(PAD + 26, hy - 17, 78, 26, C["green_bg"], rx=6))
-    parts.append(t(PAD + 26 + 39, hy + 1, "实付最省", 13, C["green"], "500",
-                   anchor="middle"))
+    for cx, plan, tag, tag_fg, tag_bg, card_bg, border in cards:
+        parts.append(rect(cx, y, cw2, hero_h, card_bg, border, rx=16))
+        parts.append(rect(cx + 24, y + 22, 96, 26, tag_bg, rx=6))
+        parts.append(t(cx + 24 + 48, y + 40, tag, 13, tag_fg, "500", anchor="middle"))
 
-    hy += 36
-    parts.append(t(PAD + 26, hy, " + ".join(best.names), 24, C["ink"], "600"))
+        parts.append(t(cx + 24, y + 82, " + ".join(plan.names), 20, C["ink"], "600"))
+        parts.append(t(cx + 24, y + 128, f"¥{plan.price:.2f}", 34, C["blue"], "600"))
+        if plan.saving > 0.005:
+            parts.append(t(cx + 24 + 122, y + 128,
+                           f"省 ¥{plan.saving:.2f}", 15, C["red"], "600"))
 
-    hy += 52
-    parts.append(t(PAD + 26, hy, f"¥{best.price:.2f}", 42, C["blue"], "600"))
-    parts.append(t(PAD + 26 + 150, hy, f"¥{best.list_price:.2f}", 17, C["hint"]))
-    # 删除线
-    parts.append(f'<line x1="{PAD + 26 + 148}" y1="{hy - 6}" '
-                 f'x2="{PAD + 26 + 148 + len(f"{best.list_price:.2f}") * 10 + 12}" '
-                 f'y2="{hy - 6}" stroke="{C["hint"]}" stroke-width="1.4"/>')
-    parts.append(t(PAD + 26 + 268, hy,
-                   f"省 ¥{best.saving:.2f}", 17, C["red"], "600"))
+        parts.append(f'<line x1="{cx + 24}" y1="{y + 152}" '
+                     f'x2="{cx + cw2 - 24}" y2="{y + 152}" '
+                     f'stroke="{C["line"]}" stroke-width="1"/>')
+        parts.append(t(cx + 24, y + 180,
+                       f"钠 {plan.sodium_mg:.0f}mg", 14, C["muted"]))
+        parts.append(t(cx + 24 + 128, y + 180,
+                       f"热量 {plan.kcal:.0f}kcal", 14, C["muted"]))
+        parts.append(t(cx + 24 + 268, y + 180,
+                       f"蛋白 {plan.protein_g:.0f}g", 14, C["muted"]))
 
-    hy += 40
-    parts.append(f'<line x1="{PAD + 26}" y1="{hy - 18}" x2="{W - PAD - 26}" '
-                 f'y2="{hy - 18}" stroke="{C["line"]}" stroke-width="1"/>')
-    parts.append(t(PAD + 26, hy + 8,
-                   f"钠 {best.sodium_mg:.0f}mg", 15, C["muted"]))
-    parts.append(t(PAD + 176, hy + 8,
-                   f"热量 {best.kcal:.0f}kcal", 15, C["muted"]))
-    parts.append(t(PAD + 330, hy + 8,
-                   f"蛋白 {best.protein_g:.0f}g", 15, C["muted"]))
+        # 底部：券信息或组合说明
+        sub = ("已用券：" + "、".join(plan.quote.applied_coupons)
+               if plan.quote.applied_coupons else "无可用券，按门店价")
+        parts.append(t(cx + 24, y + 212, sub, 13, C["hint"]))
 
-    # 黄色提示条
-    hy += 34
-    parts.append(rect(PAD + 26, hy, W - PAD * 2 - 52, 44, C["amber_bg"], rx=9))
-    tip = (f"同预算下最低钠：{' + '.join(lowest.names)}"
-           f"（{lowest.sodium_mg:.0f}mg，¥{lowest.price:.2f}），"
-           f"多花 ¥{lowest.price - best.price:.2f} 可减钠 "
-           f"{best.sodium_mg - lowest.sodium_mg:.0f}mg")
-    parts.append(t(PAD + 46, hy + 28, tip, 14, C["amber"]))
+    # 约束提示条
+    y += hero_h + 16
+    tip = (f"同价区间内多花 ¥{lowest.price - best.price:.2f}，"
+           f"可减钠 {best.sodium_mg - lowest.sodium_mg:.0f}mg。"
+           f"把钠上限压到 {int(best.sodium_mg) - 1}mg 以下，推荐才会变化。")
+    parts.append(rect(PAD, y, W - PAD * 2, 48, C["blue_bg"], rx=10))
+    parts.append(t(PAD + 20, y + 30, tip, 14, C["blue"]))
 
-    y += hero_h + 48
+    y += 48 + 52
 
     # ---------- 帕累托图 ----------
     parts.append(t(PAD, y, "价格 × 钠 帕累托前沿", 22, C["ink"], "600"))

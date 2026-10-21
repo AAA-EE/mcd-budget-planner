@@ -138,6 +138,34 @@ def test_explain_dominance_text():
         assert "便宜" in text or "少钠" in text or "持平" in text
 
 
+def test_min_items_forces_multi_item():
+    """
+    min_items 必须真正改变结果。
+
+    回归背景：页面最初只限制「件数上限」，而最省解永远是单件
+    （加东西只会更贵），于是「件数」控件拖来拖去毫无反应，
+    用户以为页面坏了。改为「至少几件」后才有意义。
+    """
+    single = optimize(budget=30, max_sodium_mg=1200, min_items=1, now=NOW)
+    double = optimize(budget=30, max_sodium_mg=1200, min_items=2, now=NOW)
+
+    assert single.plans and double.plans
+    best1 = single.frontier[0]
+    best2 = double.frontier[0]
+
+    assert len(best1.codes) == 1, f"至少1件时最优应为单件，实际 {best1.codes}"
+    assert len(best2.codes) >= 2, f"至少2件时最优应含≥2件，实际 {best2.codes}"
+    assert best2.price > best1.price, "多件组合应当更贵"
+
+
+def test_min_items_all_plans_satisfy():
+    """所有返回方案都必须满足最少件数。"""
+    for n in (1, 2, 3):
+        r = optimize(budget=40, max_sodium_mg=1500, min_items=n, now=NOW)
+        for p in r.plans:
+            assert len(p.codes) >= n, f"min_items={n} 但出现 {len(p.codes)} 件方案"
+
+
 def test_no_solution_message():
     r = optimize(budget=1, max_items=2, now=NOW)
     assert r.plans == []

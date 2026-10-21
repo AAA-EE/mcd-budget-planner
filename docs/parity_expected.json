@@ -5,31 +5,7 @@
       "input": {
         "budget": 30,
         "sodium": 1500,
-        "size": 2
-      },
-      "frontier": [
-        {
-          "names": [
-            "麦香鸡"
-          ],
-          "price": 17.0,
-          "sodium": 731.0
-        },
-        {
-          "names": [
-            "麦香鱼"
-          ],
-          "price": 22.5,
-          "sodium": 556.0
-        }
-      ],
-      "plan_count": 41
-    },
-    {
-      "input": {
-        "budget": 30,
-        "sodium": 0,
-        "size": 3
+        "size": 1
       },
       "frontier": [
         {
@@ -51,6 +27,25 @@
     },
     {
       "input": {
+        "budget": 30,
+        "sodium": 0,
+        "size": 3
+      },
+      "frontier": [
+        {
+          "names": [
+            "圆筒冰淇淋",
+            "纯悦",
+            "麦香鸡"
+          ],
+          "price": 29.5,
+          "sodium": 767.0
+        }
+      ],
+      "plan_count": 1
+    },
+    {
+      "input": {
         "budget": 40,
         "sodium": 800,
         "size": 2
@@ -58,48 +53,88 @@
       "frontier": [
         {
           "names": [
+            "圆筒冰淇淋",
             "麦香鸡"
           ],
-          "price": 17.0,
+          "price": 22.0,
+          "sodium": 767.0
+        },
+        {
+          "names": [
+            "纯悦",
+            "麦香鸡"
+          ],
+          "price": 24.5,
           "sodium": 731.0
         },
         {
           "names": [
+            "圆筒冰淇淋",
             "麦香鱼"
           ],
-          "price": 22.5,
+          "price": 27.5,
+          "sodium": 592.0
+        },
+        {
+          "names": [
+            "纯悦",
+            "麦香鱼"
+          ],
+          "price": 30.0,
           "sodium": 556.0
         }
       ],
-      "plan_count": 54
+      "plan_count": 129
     },
     {
       "input": {
         "budget": 50,
-        "sodium": 2000,
+        "sodium": 1600,
         "size": 3
       },
       "frontier": [
         {
           "names": [
+            "圆筒冰淇淋",
+            "纯悦",
             "麦香鸡"
           ],
-          "price": 17.0,
+          "price": 29.5,
+          "sodium": 767.0
+        },
+        {
+          "names": [
+            "可乐",
+            "纯悦",
+            "麦香鸡"
+          ],
+          "price": 34.0,
           "sodium": 731.0
         },
         {
           "names": [
+            "圆筒冰淇淋",
+            "纯悦",
             "麦香鱼"
           ],
-          "price": 22.5,
+          "price": 35.0,
+          "sodium": 592.0
+        },
+        {
+          "names": [
+            "可乐",
+            "纯悦",
+            "麦香鱼"
+          ],
+          "price": 39.5,
           "sodium": 556.0
         }
       ],
-      "plan_count": 3109
+      "plan_count": 2442
     },
     {
       "input": {
-        "budget": 25,
+        "budget": 20,
         "sodium": 1200,
         "size": 1
       },
@@ -110,16 +145,9 @@
           ],
           "price": 17.0,
           "sodium": 731.0
-        },
-        {
-          "names": [
-            "麦香鱼"
-          ],
-          "price": 22.5,
-          "sodium": 556.0
         }
       ],
-      "plan_count": 7
+      "plan_count": 1
     },
     {
       "input": {
@@ -130,13 +158,24 @@
       "frontier": [
         {
           "names": [
+            "圆筒冰淇淋",
+            "纯悦",
             "麦香鱼"
           ],
-          "price": 22.5,
+          "price": 35.0,
+          "sodium": 592.0
+        },
+        {
+          "names": [
+            "可乐",
+            "纯悦",
+            "麦香鱼"
+          ],
+          "price": 39.5,
           "sodium": 556.0
         }
       ],
-      "plan_count": 76
+      "plan_count": 63
     },
     {
       "input": {
@@ -147,20 +186,64 @@
       "frontier": [
         {
           "names": [
+            "圆筒冰淇淋",
             "麦香鸡"
           ],
-          "price": 17.0,
+          "price": 22.0,
+          "sodium": 767.0
+        },
+        {
+          "names": [
+            "纯悦",
+            "麦香鸡"
+          ],
+          "price": 24.5,
           "sodium": 731.0
         },
         {
           "names": [
+            "圆筒冰淇淋",
             "麦香鱼"
           ],
-          "price": 22.5,
+          "price": 27.5,
+          "sodium": 592.0
+        },
+        {
+          "names": [
+            "纯悦",
+            "麦香鱼"
+          ],
+          "price": 30.0,
           "sodium": 556.0
         }
       ],
-      "plan_count": 127
+      "plan_count": 1262
+    },
+    {
+      "input": {
+        "budget": 25,
+        "sodium": 1150,
+        "size": 2
+      },
+      "frontier": [
+        {
+          "names": [
+            "圆筒冰淇淋",
+            "麦香鸡"
+          ],
+          "price": 22.0,
+          "sodium": 767.0
+        },
+        {
+          "names": [
+            "纯悦",
+            "麦香鸡"
+          ],
+          "price": 24.5,
+          "sodium": 731.0
+        }
+      ],
+      "plan_count": 2
     }
   ]
 }
